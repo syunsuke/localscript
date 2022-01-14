@@ -1,0 +1,2 @@
+# localscript
+my local script
