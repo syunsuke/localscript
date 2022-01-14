@@ -1,0 +1,36 @@
+#!/bin/sh
+
+######################################################## 
+# 2022/01/14
+# ok.xmonad@gmail.com
+#
+# kittyのテーマ変更スクリプト
+# fzfが必要
+# 
+# ${HOME}/.config/kitty/themes
+# にテーマが必要
+# themeは
+# https://github.com/dexpota/kitty-themes
+########################################################
+
+
+# fzfのチェック
+if [ ! -x /bin/fzf ]
+then
+  echo "ABORT: We need to install fzf."
+  exit 1
+fi
+
+# テーマディレクトリのチェック
+theme_dir=${HOME}/.config/kitty/themes
+if [ ! -d ${theme_dir} ]
+then
+  echo "ABORT: We need kitty'S themes."
+  exit 1
+fi
+
+
+cd ${theme_dir}
+fzf --preview 'head -n 20 {} && kitty @ set-colors -a -c {}'
+cd -
+
