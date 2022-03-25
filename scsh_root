@@ -1,0 +1,13 @@
+#!/bin/sh
+
+######################################################## 
+# 2022/01/17
+# ok.xmonad@gmail.com
+#
+# すくりーんしょっと
+########################################################
+
+output_filename=sc_root_$(date +%Y%m%d%H%M%S).png
+sc_dir=${HOME}/Pictures/screenshot
+
+maim ${sc_dir}/${output_filename}

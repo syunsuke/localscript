@@ -1,0 +1,15 @@
+#!/bin/sh
+
+######################################################## 
+# 2022/01/17
+# ok.xmonad@gmail.com
+#
+# すくりーんしょっと
+########################################################
+
+output_filename=sc_window_$(date +%Y%m%d%H%M%S).png
+sc_dir=${HOME}/Pictures/screenshot
+
+maim -B -sut 9999999 | \
+  convert - \( +clone -background black -shadow 80x10+10+10 \) \
+  +swap -background none -layers merge +repage ${sc_dir}/${output_filename}
