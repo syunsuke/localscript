@@ -1,0 +1,126 @@
+#!/bin/sh
+######################################################## 
+# 2022/03/26
+# ok.xmonad@gmail.com
+#
+# 適当に壁紙を作る
+#  要 imagemagick
+#  要 archlinux logo
+########################################################
+
+#######################################################
+# 一時ファイル管理ディレクトリ
+#######################################################
+temp_dir=$(mktemp -d)
+trap 'rm -rf ${temp_dir}' EXIT
+
+
+#######################################################
+# オプション処理
+#######################################################
+
+usage_exit() {
+        echo "Usage: $0 [-L logopath] [-p position] imagefile" 1>&2
+        exit 1
+}
+
+while getopts L:p:h OPT
+do
+    case $OPT in
+        L)  logoimage=$OPTARG
+            LOGO_FLAG="TRUE"
+            ;;
+        p)  trimpos=$OPTARG
+            TRIM_FLAG="TRUE"
+            ;;
+        h)  usage_exit
+            ;;
+        \?) usage_exit
+            ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+
+#######################################################
+# 出力ファイル名を決定
+#######################################################
+input_image=${1}
+i_dir=$(dirname ${input_image})
+i_file=$(basename ${input_image})
+pre_name="nekowpaper_"
+
+# pngファイルで出力する
+i_file=${i_file%.*}.PNG
+
+# 出力名
+output_filename=${i_dir}/${pre_name}${i_file}
+
+
+#######################################################
+# ロゴの準備
+#######################################################
+# ロゴファイル
+# aur/archlinux-artwork
+# パッケージのインストールが必要
+logo_svg="/usr/share/archlinux/logos/archlinux-grad1-light.svg"
+
+if [ "$LOGO_FLAG" = "TRUE" ]; then
+  logo_svg=${logoimage}
+fi
+
+logo_png=${temp_dir}/archlogo.png
+
+# archlinuxのロゴファイルをPNGに変換
+convert -density 100 -background none ${logo_svg} ${logo_png}
+convert ${logo_png} -resize 700x400 ${logo_png}
+
+# archlinuxのロゴファイルに影を付ける
+convert ${logo_png} \
+  \( +clone -background "#000000" -shadow 100x5+5+5 \) \
+  +swap -background none -layers merge +repage ${logo_png}
+
+
+#######################################################
+# 壁紙のサイズ変更
+#######################################################
+scaled_image=${temp_dir}/scaled_image.png
+
+#横幅を1920にする
+w_size="1920x"
+wh_size="1920x1080"
+cplip_pos="center"
+
+if [ "$TRIM_FLAG" = "TRUE" ]; then
+  case ${trimpos} in
+    center) cplip_pos="center"
+      ;;
+    north) cplip_pos="north"
+      ;;
+    top) cplip_pos="north"
+      ;;
+    south) cplip_pos="south"
+      ;;
+    bottom) cplip_pos="south"
+      ;;
+    *) cplip_pos="center"
+      ;;
+  esac
+fi
+
+# 処理
+convert ${input_image} -resize ${w_size} - | \
+convert - -background grey \
+          -gravity ${cplip_pos} \
+          -extent ${wh_size} \
+          ${scaled_image}
+
+#######################################################
+# ロゴ合成
+#######################################################
+composite -gravity southwest \
+  -geometry +50+50 \
+  ${logo_png} ${scaled_image} ${output_filename}
+
+
