@@ -5,6 +5,8 @@
 #
 # 適当に壁紙を作る
 #  要 imagemagick
+#  要 feh
+#  要 bc
 #  要 archlinux logo
 ########################################################
 
@@ -14,24 +16,62 @@
 temp_dir=$(mktemp -d)
 trap 'rm -rf ${temp_dir}' EXIT
 
+#######################################################
+# ルーチン
+#######################################################
+function getWidth(){
+  identify $1 | \
+  awk '{print $3}' | \
+  sed -nr "s/([0-9]+)x([0-9]+)/\1/p"
+}
+
+function getHeight(){
+  identify $1 | \
+  awk '{print $3}' | \
+  sed -nr "s/([0-9]+)x([0-9]+)/\2/p"
+}
+
+# chec_ratio
+#
+# $1 original width
+# $2 original height
+# $3 format width
+# $4 format height
+#
+function check_ratio(){
+  res_calc=$(echo "scale=3; ($3 / $4) - ($1 / $2)" | bc)
+  ans="${3}x"
+  if [ ${res_calc:0:1} = "-" ]; then
+    ans="x${4}"
+  fi
+  echo $ans
+}
 
 #######################################################
 # オプション処理
 #######################################################
 
 usage_exit() {
-        echo "Usage: $0 [-L logopath] [-p position] imagefile" 1>&2
+        echo "Usage: $0 [-b] [-L logopath] [-s size] [-p position] [-d path] imagefile" 1>&2
         exit 1
 }
 
-while getopts L:p:h OPT
+while getopts d:L:s:p:bh OPT
 do
     case $OPT in
         L)  logoimage=$OPTARG
             LOGO_FLAG="TRUE"
             ;;
+        d)  outpath=$OPTARG
+            OP_FLAG="TRUE"
+            ;;
+        s)  size=$OPTARG
+            SIZE_FLAG="TRUE"
+            ;;
         p)  trimpos=$OPTARG
             TRIM_FLAG="TRUE"
+            ;;
+        b)  BG_FLAG="TRUE"
             ;;
         h)  usage_exit
             ;;
@@ -46,16 +86,117 @@ shift $((OPTIND - 1))
 #######################################################
 # 出力ファイル名を決定
 #######################################################
+
+# 入力された画像
 input_image=${1}
+
 i_dir=$(dirname ${input_image})
 i_file=$(basename ${input_image})
 pre_name="nekowpaper_"
 
 # pngファイルで出力する
-i_file=${i_file%.*}.PNG
+o_file=${i_file%.*}.PNG
+
+# 大きさ調整された一時画像
+scaled_image=${temp_dir}/scaled_image.png
 
 # 出力名
-output_filename=${i_dir}/${pre_name}${i_file}
+output_filename=${i_dir}/${pre_name}${o_file}
+if [ "$OP_FLAG" = "TRUE" ]; then
+
+  if [ -e ${outpath} ]; then
+    output_filename=${outpath}/${pre_name}${o_file}
+  else
+    echo "abort: ${outpath} is not found."
+    exit 1
+  fi
+fi
+
+#######################################################
+# 壁紙作成
+#######################################################
+
+#///////////////////////
+# 出力サイズの決定
+#///////////////////////
+w_size="1920"
+h_size="1080"
+
+if [ "$SIZE_FLAG" = "TRUE" ]; then
+    case $size in
+      fullHD | normal)
+        w_size="1920"
+        h_size="1080"
+        ;;
+      WQHD | big)
+        w_size="2560"
+        h_size="1440"
+        ;;
+      SXGA | old)
+        w_size="1280"
+        h_size="1024"
+        ;;
+        *)
+        w_size="1920"
+        h_size="1080"
+        ;;
+    esac
+fi
+
+wh_size="${w_size}x${h_size}"
+
+#///////////////////////
+# 入力サイズの調査
+#///////////////////////
+org_w=$(getWidth $input_image)
+org_h=$(getHeight $input_image)
+
+
+#///////////////////////
+# リサイズの大きさを決定
+#///////////////////////
+resize=$(check_ratio $org_w $org_h $w_size $h_size)
+
+echo $resize
+#///////////////////////
+# リサイズの大きさを決定
+#///////////////////////
+cplip_pos="center"
+
+if [ "$TRIM_FLAG" = "TRUE" ]; then
+  case ${trimpos} in
+    center) cplip_pos="center"
+      ;;
+    north) cplip_pos="north"
+      ;;
+    top) cplip_pos="north"
+      ;;
+    south) cplip_pos="south"
+      ;;
+    bottom) cplip_pos="south"
+      ;;
+    east) cplip_pos="east"
+      ;;
+    right) cplip_pos="east"
+      ;;
+    west) cplip_pos="west"
+      ;;
+    left) cplip_pos="west"
+      ;;
+    *) cplip_pos="center"
+      ;;
+  esac
+fi
+
+
+#///////////////////////
+# 処理
+#///////////////////////
+convert ${input_image} -resize "${resize}" - | \
+convert - -background grey \
+          -gravity ${cplip_pos} \
+          -extent ${wh_size} \
+          ${scaled_image}
 
 
 #######################################################
@@ -72,55 +213,42 @@ fi
 
 logo_png=${temp_dir}/archlogo.png
 
+#///////////////////////
 # archlinuxのロゴファイルをPNGに変換
-convert -density 100 -background none ${logo_svg} ${logo_png}
-convert ${logo_png} -resize 700x400 ${logo_png}
+#///////////////////////
+convert -density 96 -background none ${logo_svg} ${logo_png}
 
+#///////////////////////
+# logoが大きい時、小さくする
+#///////////////////////
+logo_w=$(getWidth ${logo_png})
+logo_h=$(getHeight ${logo_png})
+max_logo_width=$((${w_size} * 3 / 12))
+
+if (( ${logo_w} > ${max_logo_width})); then
+  convert ${logo_png} -resize "${max_logo_width}x" ${logo_png}
+fi
+
+#///////////////////////
 # archlinuxのロゴファイルに影を付ける
+#///////////////////////
 convert ${logo_png} \
   \( +clone -background "#000000" -shadow 100x5+5+5 \) \
   +swap -background none -layers merge +repage ${logo_png}
 
 
 #######################################################
-# 壁紙のサイズ変更
-#######################################################
-scaled_image=${temp_dir}/scaled_image.png
-
-#横幅を1920にする
-w_size="1920x"
-wh_size="1920x1080"
-cplip_pos="center"
-
-if [ "$TRIM_FLAG" = "TRUE" ]; then
-  case ${trimpos} in
-    center) cplip_pos="center"
-      ;;
-    north) cplip_pos="north"
-      ;;
-    top) cplip_pos="north"
-      ;;
-    south) cplip_pos="south"
-      ;;
-    bottom) cplip_pos="south"
-      ;;
-    *) cplip_pos="center"
-      ;;
-  esac
-fi
-
-# 処理
-convert ${input_image} -resize ${w_size} - | \
-convert - -background grey \
-          -gravity ${cplip_pos} \
-          -extent ${wh_size} \
-          ${scaled_image}
-
-#######################################################
 # ロゴ合成
 #######################################################
 composite -gravity southwest \
-  -geometry +50+50 \
+  -geometry +100+100 \
   ${logo_png} ${scaled_image} ${output_filename}
 
+
+#######################################################
+# バックグラウンド画像に設定
+#######################################################
+if [ "$BG_FLAG" = "TRUE" ]; then
+  feh --bg-center ${output_filename}
+fi
 
