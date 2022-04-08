@@ -17,37 +17,6 @@ temp_dir=$(mktemp -d)
 trap 'rm -rf ${temp_dir}' EXIT
 
 #######################################################
-# ルーチン
-#######################################################
-function getWidth(){
-  identify $1 | \
-  awk '{print $3}' | \
-  sed -nr "s/([0-9]+)x([0-9]+)/\1/p"
-}
-
-function getHeight(){
-  identify $1 | \
-  awk '{print $3}' | \
-  sed -nr "s/([0-9]+)x([0-9]+)/\2/p"
-}
-
-# chec_ratio
-#
-# $1 original width
-# $2 original height
-# $3 format width
-# $4 format height
-#
-function check_ratio(){
-  res_calc=$(echo "scale=3; ($3 / $4) - ($1 / $2)" | bc)
-  ans="${3}x"
-  if [ ${res_calc:0:1} = "-" ]; then
-    ans="x${4}"
-  fi
-  echo $ans
-}
-
-#######################################################
 # オプション処理
 #######################################################
 
@@ -82,35 +51,75 @@ done
 
 shift $((OPTIND - 1))
 
+#######################################################
+# ルーチン
+#######################################################
+function getWidth(){
+  identify -format "%w" $1
+}
+
+function getHeight(){
+  identify -format "%h" $1
+}
+
+# check_ratio $1 $2 $3 $4
+# 縦と横とどちらにあわせて縮小するかを自動で決める
+#
+# $1 input image width
+# $2 input image height
+# $3 monitor width
+# $4 monitor height
+# モニタの高さより大きいとき 1
+# モニタの高さより小さいとき 0
+
+
+# check_ratio $1 $2 $3 $4
+# 縦と横とどちらにあわせて縮小するかを自動で決める
+#
+# $1 input image width
+# $2 input image height
+# $3 monitor width
+# $4 monitor height
+# モニタの高さより大きいとき 1
+# モニタの高さより小さいとき 0
+
+function detect_resizeopt(){
+  ans=`echo "scale=5; ($2 / $1) > ($4 / $3)" | bc`
+  if [ ${ans} -eq 1 ];then
+    echo "${3}x"
+  else
+    echo "x${4}"
+  fi
+}
+
 
 #######################################################
-# 出力ファイル名を決定
+# ファイル名、パス等
 #######################################################
 
 # 入力された画像
 input_image=${1}
 
+# ディレクトリとファイル名部分を分ける
 i_dir=$(dirname ${input_image})
 i_file=$(basename ${input_image})
-pre_name="nekowpaper_"
 
-# pngファイルで出力する
-o_file=${i_file%.*}.PNG
+# jpgファイルで出力する
+o_file=${i_file%.*}.jpg
 
 # 大きさ調整された一時画像
 scaled_image=${temp_dir}/scaled_image.png
 
-# 出力名
-output_filename=${i_dir}/${pre_name}${o_file}
-if [ "$OP_FLAG" = "TRUE" ]; then
+# 出力ファイル名プレフィックス
+pre_name="wallpaper"
 
-  if [ -e ${outpath} ]; then
-    output_filename=${outpath}/${pre_name}${o_file}
-  else
-    echo "abort: ${outpath} is not found."
-    exit 1
-  fi
-fi
+# ロゴファイル
+# aur/archlinux-artwork
+# パッケージのインストールが必要
+logo_svg="/usr/share/archlinux/logos/archlinux-grad1-light.svg"
+
+# 影付きロゴ
+shadowed_logo=${temp_dir}/shadowed_logo.png
 
 #######################################################
 # 壁紙作成
@@ -119,31 +128,46 @@ fi
 #///////////////////////
 # 出力サイズの決定
 #///////////////////////
-w_size="1920"
-h_size="1080"
+mon_w="1920"
+mon_h="1080"
 
 if [ "$SIZE_FLAG" = "TRUE" ]; then
     case $size in
       fullHD | normal)
-        w_size="1920"
-        h_size="1080"
+        mon_w="1920"
+        mon_h="1080"
         ;;
       WQHD | big)
-        w_size="2560"
-        h_size="1440"
+        mon_w="2560"
+        mon_h="1440"
         ;;
       SXGA | old)
-        w_size="1280"
-        h_size="1024"
+        mon_w="1280"
+        mon_h="1024"
         ;;
         *)
-        w_size="1920"
-        h_size="1080"
+        mon_w="1920"
+        mon_h="1080"
         ;;
     esac
 fi
 
-wh_size="${w_size}x${h_size}"
+mon_wh="${mon_w}x${mon_h}"
+
+output_basefilename=${pre_name}_${mon_wh}_${o_file}
+
+# 出力名(デフォルト)
+result_file=${i_dir}/${output_basefilename}
+
+# 出力先ディレクトリが指定されている時
+if [ "$OP_FLAG" = "TRUE" ]; then
+  if [ -e ${outpath} ]; then
+    result_file=${outpath}/${output_basefilename}
+  else
+    echo "abort: ${outpath} is not found."
+    exit 1
+  fi
+fi
 
 #///////////////////////
 # 入力サイズの調査
@@ -153,81 +177,73 @@ org_h=$(getHeight $input_image)
 
 
 #///////////////////////
-# リサイズの大きさを決定
+# リサイズのオプションを決定
 #///////////////////////
-resize=$(check_ratio $org_w $org_h $w_size $h_size)
+resize_opt=$(detect_resizeopt $org_w $org_h $mon_w $mon_h)
 
-echo $resize
 #///////////////////////
-# リサイズの大きさを決定
+# 基準点の変更
 #///////////////////////
-cplip_pos="center"
+crop_pos="center"
 
 if [ "$TRIM_FLAG" = "TRUE" ]; then
   case ${trimpos} in
-    center) cplip_pos="center"
+    center) crop_pos="center"
       ;;
-    north) cplip_pos="north"
+    north) crop_pos="north"
       ;;
-    top) cplip_pos="north"
+    top) crop_pos="north"
       ;;
-    south) cplip_pos="south"
+    south) crop_pos="south"
       ;;
-    bottom) cplip_pos="south"
+    bottom) crop_pos="south"
       ;;
-    east) cplip_pos="east"
+    east) crop_pos="east"
       ;;
-    right) cplip_pos="east"
+    right) crop_pos="east"
       ;;
-    west) cplip_pos="west"
+    west) crop_pos="west"
       ;;
-    left) cplip_pos="west"
+    left) crop_pos="west"
       ;;
-    *) cplip_pos="center"
+    *) crop_pos="center"
       ;;
   esac
 fi
 
+echo "crop_pos=${crop_pos}"
 
 #///////////////////////
-# 処理
+# 画像を縮小して切り出し
 #///////////////////////
-convert ${input_image} -resize "${resize}" - | \
-convert - -background grey \
-          -gravity ${cplip_pos} \
-          -extent ${wh_size} \
+convert ${input_image} -resize "${resize_opt}" - | \
+convert - -gravity ${crop_pos} \
+          -crop "${mon_wh}+0+0" \
           ${scaled_image}
 
 
 #######################################################
 # ロゴの準備
 #######################################################
-# ロゴファイル
-# aur/archlinux-artwork
-# パッケージのインストールが必要
-logo_svg="/usr/share/archlinux/logos/archlinux-grad1-light.svg"
-
 if [ "$LOGO_FLAG" = "TRUE" ]; then
   logo_svg=${logoimage}
 fi
 
-logo_png=${temp_dir}/archlogo.png
+logo_png=${temp_dir}/logo.png
+
+#///////////////////////
+# logoの大きさの制限
+#///////////////////////
+max_logo_w=$((${mon_w} / 3 ))
+max_logo_h=$((${mon_h} / 3 ))
+max_logo_size_opt="${max_logo_w}x${max_logo_h}>"
 
 #///////////////////////
 # archlinuxのロゴファイルをPNGに変換
 #///////////////////////
-convert -density 96 -background none ${logo_svg} ${logo_png}
+convert -density 96 -background none ${logo_svg} \
+  -resize ${max_logo_size_opt} ${logo_png}
 
-#///////////////////////
-# logoが大きい時、小さくする
-#///////////////////////
-logo_w=$(getWidth ${logo_png})
-logo_h=$(getHeight ${logo_png})
-max_logo_width=$((${w_size} * 3 / 12))
-
-if (( ${logo_w} > ${max_logo_width})); then
-  convert ${logo_png} -resize "${max_logo_width}x" ${logo_png}
-fi
 
 #///////////////////////
 # archlinuxのロゴファイルに影を付ける
@@ -240,15 +256,15 @@ convert ${logo_png} \
 #######################################################
 # ロゴ合成
 #######################################################
-composite -gravity southwest \
-  -geometry +100+100 \
-  ${logo_png} ${scaled_image} ${output_filename}
-
+convert ${scaled_image} ${logo_png} \
+-gravity southwest -geometry +50+50 \
+-composite \
+${result_file}
 
 #######################################################
 # バックグラウンド画像に設定
 #######################################################
 if [ "$BG_FLAG" = "TRUE" ]; then
-  feh --bg-center ${output_filename}
+  feh --bg-center ${result_file}
 fi
 

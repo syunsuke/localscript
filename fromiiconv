@@ -1,0 +1,28 @@
+#!/bin/sh
+
+######################################################## 
+# 2022/04/01
+# ok.xmonad@gmail.com
+#
+# google driveにあるiphone画像フォルダから
+# ファイルを移動して、pngに変換する
+########################################################
+
+source_dir="/home/neko/GoogleDrive/image/iPhone"
+dist_dir="/home/neko/Pictures/conv_iPhone"
+
+#######################################################
+# 一時ファイル管理ディレクトリ
+#######################################################
+temp_dir=$(mktemp -d)
+trap 'rm -rf ${temp_dir}' EXIT
+
+mv ${source_dir}/*.HEIC ${temp_dir}
+
+for i in ${temp_dir}/*.HEIC
+do
+  filename=`basename $i`
+  dist_filename=${dist_dir}/${filename%.HEIC}.png
+  convert ${i} ${dist_filename}
+done
+
