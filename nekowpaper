@@ -25,9 +25,12 @@ usage_exit() {
         exit 1
 }
 
-while getopts d:L:s:p:bh OPT
+while getopts a:d:L:s:p:bh OPT
 do
     case $OPT in
+        a)  authname=$OPTARG
+            AUTH_FLAG="TRUE"
+            ;;
         L)  logoimage=$OPTARG
             LOGO_FLAG="TRUE"
             ;;
@@ -220,6 +223,27 @@ convert ${input_image} -resize "${resize_opt}" - | \
 convert - -gravity ${crop_pos} \
           -crop "${mon_wh}+0+0" \
           ${scaled_image}
+
+
+#///////////////////////
+# 撮影者の表示
+#///////////////////////
+
+
+if [ "$AUTH_FLAG" = "TRUE" ];then
+photo_string="photograph\n ${authname}"
+
+convert -background none \
+-fill white \
+-pointsize 18 \
+label:"${photo_string}" \
+\( +clone -background "#000000" -shadow 100x5+5+5 \) \
++swap -background none -layers merge +repage png:- | \
+convert ${scaled_image} - -gravity southeast -geometry +20+20 \
+-composite ${scaled_image}
+fi
+
+
 
 
 #######################################################
