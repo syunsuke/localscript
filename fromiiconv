@@ -18,11 +18,13 @@ temp_dir=$(mktemp -d)
 trap 'rm -rf ${temp_dir}' EXIT
 
 mv ${source_dir}/*.HEIC ${temp_dir}
+echo "copying to local is done."
 
 for i in ${temp_dir}/*.HEIC
 do
   filename=`basename $i`
   dist_filename=${dist_dir}/${filename%.HEIC}.png
   convert ${i} ${dist_filename}
+  echo "${dist_filename} is done."
 done
 
