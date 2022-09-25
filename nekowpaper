@@ -21,7 +21,7 @@ trap 'rm -rf ${temp_dir}' EXIT
 #######################################################
 
 usage_exit() {
-        echo "Usage: $0 [-b] [-L logopath] [-s size] [-p position] [-d path] imagefile" 1>&2
+        echo "Usage: $0 [-b] [-L logopath] [-s size] [-p position] [-d path] inputimage [outputname]" 1>&2
         exit 1
 }
 
@@ -160,7 +160,10 @@ mon_wh="${mon_w}x${mon_h}"
 output_basefilename=${pre_name}_${mon_wh}_${o_file}
 
 # 出力名(デフォルト)
-result_file=${i_dir}/${output_basefilename}
+result_file=${output_basefilename}
+if [ "${2}" != "" ];then
+  result_file=${2}
+fi
 
 # 出力先ディレクトリが指定されている時
 if [ "$OP_FLAG" = "TRUE" ]; then

@@ -1,0 +1,12 @@
+#!/bin/sh
+
+######################################################## 
+# 2022/08/29
+# ok.xmonad@gmail.com
+#
+# goのテンプレートをコピーする
+########################################################
+
+gotamplatepath="/home/neko/.config/atcoder-cli-nodejs/go/main.go"
+
+cp -b $gotamplatepath .
