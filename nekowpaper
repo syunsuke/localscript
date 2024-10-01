@@ -25,7 +25,7 @@ usage_exit() {
         exit 1
 }
 
-while getopts a:d:L:s:p:bh OPT
+while getopts a:d:L:s:p:bnh OPT
 do
     case $OPT in
         a)  authname=$OPTARG
@@ -44,6 +44,8 @@ do
             TRIM_FLAG="TRUE"
             ;;
         b)  BG_FLAG="TRUE"
+            ;;
+        n)  NOLOGO_FLAG="TRUE"
             ;;
         h)  usage_exit
             ;;
@@ -253,6 +255,7 @@ fi
 # ロゴの準備
 #######################################################
 if [ "$LOGO_FLAG" = "TRUE" ]; then
+  echo "LOGO_FLAG is $LOGO_FLAG."
   logo_svg=${logoimage}
 fi
 
@@ -268,8 +271,28 @@ max_logo_size_opt="${max_logo_w}x${max_logo_h}>"
 #///////////////////////
 # archlinuxのロゴファイルをPNGに変換
 #///////////////////////
-convert -density 96 -background none ${logo_svg} \
-  -resize ${max_logo_size_opt} ${logo_png}
+#convert -density 96 -background none ${logo_svg} \
+#  -resize ${max_logo_size_opt} ${logo_png}
+
+file_ext=${logo_svg##*.}
+
+case "$file_ext" in
+  svg)
+    echo "$logo_svg is a SVG image."
+    convert -density 96 -background none ${logo_svg} \
+      -resize ${max_logo_size_opt} ${logo_png}
+          ;;
+  png)
+    echo "$logo_svg is a PNG image."
+    convert "${logo_svg}" \
+      -resize ${max_logo_size_opt} ${logo_png}
+          ;;
+  *)
+    echo "$file is not processed."
+    # その他のファイル用の処理をここに書く
+    ;;
+esac
+
 
 
 #///////////////////////
@@ -283,10 +306,16 @@ convert ${logo_png} \
 #######################################################
 # ロゴ合成
 #######################################################
-convert ${scaled_image} ${logo_png} \
--gravity southwest -geometry +50+50 \
--composite \
-${result_file}
+
+if [ "$NOLOGO_FLAG" == "TRUE" ]; then
+  echo "No Logo!"
+  convert ${scaled_image} ${result_file}
+    else
+  convert ${scaled_image} ${logo_png} \
+    -gravity southwest -geometry +50+50 \
+    -composite \
+    ${result_file}
+fi
 
 #######################################################
 # バックグラウンド画像に設定

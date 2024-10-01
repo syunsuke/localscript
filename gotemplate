@@ -3,10 +3,16 @@
 ######################################################## 
 # 2022/08/29
 # ok.xmonad@gmail.com
+# 2023/04/04 add backup feature
 #
 # goのテンプレートをコピーする
 ########################################################
 
 gotamplatepath="/home/neko/.config/atcoder-cli-nodejs/go/main.go"
+
+if [ -e ./main.go ]; then
+  old_filename=main_$(date +%Y%m%d%H%M%S)_go
+  mv main.go ${old_filename}
+fi
 
 cp -b $gotamplatepath .

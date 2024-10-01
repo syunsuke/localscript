@@ -7,10 +7,11 @@
 # atcoder cliのラッパー
 ########################################################
 
-traning="/home/neko/WorkSpace/atcoder/problems/"
+traning="/home/neko/WorkSpace/competition/problems/"
 
 cd $traning
 acc new $1
 
-ranger ${traning}$1
+cd ${traning}$1
+ranger
 

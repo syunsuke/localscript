@@ -1,0 +1,30 @@
+#!/bin/sh
+
+target_problem=${1}
+compe_dir="${HOME}/WorkSpace/compe_rust/"
+problem_dir=${target_problem}
+
+# go into compe_dir
+cd ${compe_dir}
+
+# check problem dir
+if [ -d "${problem_dir}" ]; then
+    ranger ${problem_dir}
+    exit 0
+fi
+
+# fetch problem files
+cargo compete new ${target_problem}
+
+if [ $? -ne 0 ]; then
+  echo "コマンドが失敗しました"
+  exit 1
+fi
+
+# go into compe_dir
+problem_dir=${target_problem}
+ranger ${problem_dir}
+
+exit 0
+
+

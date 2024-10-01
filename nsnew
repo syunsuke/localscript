@@ -1,18 +1,17 @@
 #!/bin/bash
 
 ######################################################## 
-# 2022/09/17
+# 2024/04/09
 # ok.xmonad@gmail.com
 #
 # atcoder cliのラッパー
 ########################################################
 
-traning="/home/neko/WorkSpace/competition/atcoder/"
+traning="/home/neko/WorkSpace/competition/novisteps/"
 
 cd $traning
 acc new $1
 
-#ranger ${traning}$1
 cd ${traning}$1
-rr
+ranger
 
